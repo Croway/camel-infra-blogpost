@@ -1,0 +1,55 @@
+- route:
+    from:
+      uri: ftp
+      parameters:
+        host: admin@localhost
+        port: 2221
+        directoryName: myTestDirectory
+        password: admin
+        noop: true
+      steps:
+        - to:
+            uri: seda
+            parameters:
+              name: kafka
+        - setHeader:
+            name: CamelAwsS3Key
+            expression:
+              simple:
+                expression: "${headers.CamelFileName}"
+        - log:
+            message: "Uploading file ${headers.CamelFileName} to S3 with content\
+              \ ${body}"
+        - to:
+            uri: jms
+            parameters:
+              destinationName: myQueue
+        - to:
+            uri: aws2-s3
+            parameters:
+              bucketNameOrArn: my-bucket
+              accessKey: accesskey
+              secretKey: secretkey
+              region: us-east-1
+              overrideEndpoint: true
+              uriEndpointOverride: http://localhost:4566
+              forcePathStyle: true
+              autoCreateBucket: true
+- route:
+    from:
+      uri: seda
+      parameters:
+        name: kafka
+      steps:
+        - setBody:
+            expression:
+              simple:
+                expression: "Uploading ${headers.CamelFileNameOnly} with content\
+                  \ ${body}"
+        - log:
+            message: Sending event to Kafka Topic
+        - to:
+            uri: kafka
+            parameters:
+              topic: myTopic
+              brokers: localhost:9092
